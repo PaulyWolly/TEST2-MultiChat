@@ -57,7 +57,7 @@ const MIC_INITIALIZATION_DELAY = 4000;  // 4 seconds delay
 // Add the MESSAGES constant
 const MESSAGES = {
     STATUS: {
-        DEFAULT: "Click the Conversation Mode checkbox, or press the microphone button \n\n...to enable conversations, or enter a message and press Send",
+        DEFAULT: `Click the <span class="status-keyword">Conversation Mode</span> checkbox, or press the <span class="status-keyword">Microphone</span> button <br><span class="status-default">...to enable conversations, or enter a message and press Send`,
         LISTENING: "Listening...",
         SPEAKING: "AI is speaking...",
         PROCESSING: "Processing...",
@@ -1065,26 +1065,26 @@ async function sendMessage(message, isGreeting = false) {
             let response;
             const messageElement = document.createElement('div');
 
-            // const messageElement = addMessageToChat('assistant', response);
             addMessageToChat('user', message);
 
             // Check if asking for date, time, or both
             if (hasTime && !hasDate) {
                 response = `The local time is ${today.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST`;
-                messageElement.className = 'message system-bubble time-response';
+                messageElement.className = 'message time-date-bubble time-response';
             } else if (hasDate && !hasTime) {
                 response = `Today's date is ${today.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
-                messageElement.className = 'message system-bubble date-response';
+                messageElement.className = 'message time-date-bubble date-response';
             } else {
                 response = `Today's date is ${today.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} and the local time is ${today.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} PST`;
-                messageElement.className = 'message system-bubble datetime-response';
+                messageElement.className = 'message time-date-bubble datetime-response';
             }
 
-            // Queue audio for date/time response
-            await queueAudioChunk(response);
-
+            // Show the text response immediately
             messageElement.textContent = response;
             elements.chatMessages.appendChild(messageElement);
+
+            // Then play audio (do not await before showing text)
+            queueAudioChunk(response);
             return;
         }
 
@@ -2034,8 +2034,7 @@ async function exitConversation(isTimeout = false) {
 
 // Update status function
 function updateStatus(message) {
-    elements.status.textContent = message;
-    // Sync stop button visibility with status message
+    elements.status.innerHTML = message;
     elements.stopAudioButton.style.display = 
         message === MESSAGES.STATUS.SPEAKING ? 'inline-block' : 'none';
 }
