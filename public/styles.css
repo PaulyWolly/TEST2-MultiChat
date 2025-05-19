@@ -1454,3 +1454,10 @@ button {
 .youtube-popup-btn:active {
     transform: translateY(1px);
 }
+
+.status-msg {
+    font-size: 1.7vh;
+    font-weight: 600;
+    max-width: 62%;
+    color: blue;
+}

@@ -750,6 +750,11 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
     document.head.appendChild(style);
 
+    // Disable Conversation Mode checkbox at startup
+    if (elements.conversationModeToggle) {
+        elements.conversationModeToggle.disabled = true;
+    }
+
     initializeApp();
 });
 
@@ -778,12 +783,11 @@ async function initializeApp() {
         // Set up SSE connection
         setupSSEConnection();
 
-        // Update initial status
-        // updateStatus('Click the microphone button to start speech recognition or type a message and press Send.');
-
         // Add delay before enabling conversation mode
         setTimeout(() => {
-            elements.conversationModeToggle.disabled = false;
+            if (elements.conversationModeToggle) {
+                elements.conversationModeToggle.disabled = false;
+            }
             updateStatus(MESSAGES.STATUS.DEFAULT);
         }, MIC_INITIALIZATION_DELAY);
 
@@ -1661,7 +1665,9 @@ async function sendMessage(message, isGreeting = false) {
                     const searchQuery = messageText.replace(/\b(more|info|detail|image|images|picture|pictures|photo|photos)\b/gi, '').trim();
                     const imageResults = await searchAndDisplayImages(searchQuery);
                     if (imageResults && imageResults.images && imageResults.images.length > 0) {
-                        insertAndStyleImages(imageResults.images, response.messageElement);
+                        const { heading, cleanedText } = extractImageHeading(response.response);
+                        updateMessageContent(response.messageElement, cleanedText);
+                        insertAndStyleImages(imageResults.images, response.messageElement, heading);
                     }
                 }
 
@@ -1815,6 +1821,16 @@ function addMessageToChat(role, content, options = {}) {
     const messageElement = document.createElement('div');
     messageElement.className = `message ${role}`;
     
+    // Add special bubble classes for greetings and exit messages
+    if (role === 'assistant') {
+        const type = options.type || options.messageType || '';
+        if (type === 'greeting') {
+            messageElement.classList.add('greeting-bubble');
+        } else if (type === 'exit') {
+            messageElement.classList.add('exit-bubble');
+        }
+    }
+
     const contentElement = document.createElement('div');
     contentElement.className = 'message-content';
 
@@ -2071,21 +2087,31 @@ async function getPersonalInfo(key = null) {
 // =====================================================
 
 // Split text into chunks function
-function splitTextIntoChunks(text, maxLength = 200) {
+function splitTextIntoChunks(text, maxLength = 200, forTTS = false) {
+    const honorifics = /(?:Mr\.|Mrs\.|Dr\.|Sr\.|Jr\.|Ms\.|Prof\.|Rev\.|Capt\.|Lt\.|Col\.|Gen\.|Sgt\.|Cpl\.|Pvt\.|St\.)/g;
+    // Replace honorifics with a marker
+    let tempText = text.replace(honorifics, match => match.replace('.', 'DOT'));
+    // If for TTS, remove the DOT marker (so "MrDOT Smith" becomes "Mr Smith")
+    if (forTTS) tempText = tempText.replace(/DOT/g, '');
+    // If for display, restore the period
+    else tempText = tempText.replace(/DOT/g, '.');
     // Split text into sentences, keeping the punctuation
-    const sentences = text.match(/[^.!?]+[.!?]+(?:\s|$)/g) || [text];
+    const sentences = tempText.match(/[^.!?]+[.!?]+(?:\s|$)/g) || [tempText];
     const chunks = [];
     let currentChunk = '';
 
     for (const sentence of sentences) {
-        if (currentChunk.length + sentence.length > maxLength) {
+        // Restore honorifics in the sentence
+        const restoredSentence = sentence.replace(/DOT/g, '.');
+        
+        if (currentChunk.length + restoredSentence.length > maxLength) {
             if (currentChunk) {
                 chunks.push(currentChunk.trim());
                 currentChunk = '';
             }
-            if (sentence.length > maxLength) {
+            if (restoredSentence.length > maxLength) {
                 // Split long sentences into words
-                const words = sentence.split(/\s+/);
+                const words = restoredSentence.split(/\s+/);
                 for (const word of words) {
                     if (currentChunk.length + word.length > maxLength) {
                         chunks.push(currentChunk.trim());
@@ -2094,10 +2120,10 @@ function splitTextIntoChunks(text, maxLength = 200) {
                     currentChunk += (currentChunk ? ' ' : '') + word;
                 }
             } else {
-                currentChunk = sentence;
+                currentChunk = restoredSentence;
             }
         } else {
-            currentChunk += (currentChunk ? ' ' : '') + sentence;
+            currentChunk += (currentChunk ? ' ' : '') + restoredSentence;
         }
     }
     if (currentChunk) {
@@ -2223,6 +2249,7 @@ async function playNextInQueue() {
         state.currentAudio = new Audio(audioUrl);
         state.currentAudio.volume = AUDIO_CONFIG.volume;
 
+        // Wait for current chunk to finish before moving to next
         await new Promise((resolve, reject) => {
             state.currentAudio.onended = resolve;
             state.currentAudio.onerror = reject;
@@ -2230,9 +2257,10 @@ async function playNextInQueue() {
         });
 
         URL.revokeObjectURL(audioUrl);
-        state.audioQueue.shift();
+        state.audioQueue.shift();  // Remove played chunk
         state.isPlaying = false;
 
+        // Process next chunk if available
         if (state.audioQueue.length > 0 && !state.stopRequested) {
             setTimeout(() => playNextInQueue(), AUDIO_CONFIG.pauseDuration);
         } else {
@@ -2381,15 +2409,9 @@ async function queueAudioChunk(text) {
     let chunks = [];
 
     sections.forEach(section => {
-        // Split each section into sentences
-        const sentences = section
-            .replace(/([.!?])\s+/g, '$1|')  // Mark sentence boundaries
-            .split('|')
-            .map(s => s.trim())
-            .filter(s => s.length > 0);
-
-        // Add sentences to chunks array
-        chunks = chunks.concat(sentences);
+        // Use splitTextIntoChunks with forTTS=true to handle honorifics for TTS
+        const sectionChunks = splitTextIntoChunks(section, 200, true);
+        chunks = chunks.concat(sectionChunks);
     });
 
     // Add new chunks to existing queue instead of replacing
@@ -2780,11 +2802,22 @@ async function searchAndDisplayImages(query) {
     }
 }
 
-// Insert and style images function
-function insertAndStyleImages(images, messageElement) {
+// Helper to extract and remove the image heading from the text
+function extractImageHeading(text) {
+    // Match: Here are some relevant images for <subject>
+    const match = text.match(/Here are some relevant images for ([^.\n]+)[.!\n]?/i);
+    if (match) {
+        // Remove the heading from the text
+        const cleanedText = text.replace(match[0], '').replace(/^\s+/, '');
+        return { heading: `Here are some relevant images for ${match[1].trim()}.`, cleanedText };
+    }
+    return { heading: null, cleanedText: text };
+}
+
+function insertAndStyleImages(images, messageElement, headingText) {
     const imageSection = `
         <div class="image-section" style="margin-top: 15px; border-top: 1px solid #ccc; padding-top: 10px;">
-            <h3 style="font-size: 1.2em; margin-bottom: 10px; color: #333; font-weight: bold;">Images:</h3>
+            ${headingText ? `<h3 style="font-size: 1.2em; margin-bottom: 10px; color: #333; font-weight: bold;">${headingText}</h3>` : ''}
             <div class="image-container" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; max-width: 100%;">
                 ${images.map(image => `
                     <a href="${image.link}" target="_blank" rel="noopener noreferrer" class="image-link"
@@ -4579,5 +4612,22 @@ function printRecipe(recipeText, messageElement) {
             printWindow.close();
         };
     };
+}
+
+// Helper functions for honorific handling
+function protectHonorifics(text) {
+    const honorifics = [
+        'Mr', 'Mrs', 'Ms', 'Dr', 'Sr', 'Jr', 'Prof', 'Rev', 'Fr', 'St', 'Mx', 'Capt', 'Lt', 'Col', 'Gen', 'Sgt', 'Adm', 'Maj', 'Hon', 'Pres', 'Gov', 'Amb', 'Sec', 'Supt', 'Rep', 'Sen', 'Treas', 'Dir'
+    ];
+    // For TTS: completely remove the period after honorifics
+    return text.replace(new RegExp(`\\b(${honorifics.join('|')})\\.(?=\\s|$)`, 'g'), '$1');
+}
+
+function restoreHonorifics(text) {
+    const honorifics = [
+        'Mr', 'Mrs', 'Ms', 'Dr', 'Sr', 'Jr', 'Prof', 'Rev', 'Fr', 'St', 'Mx', 'Capt', 'Lt', 'Col', 'Gen', 'Sgt', 'Adm', 'Maj', 'Hon', 'Pres', 'Gov', 'Amb', 'Sec', 'Supt', 'Rep', 'Sen', 'Treas', 'Dir'
+    ];
+    // For display: ensure periods are present
+    return text.replace(new RegExp(`\\b(${honorifics.join('|')})(?=\\s|$)`, 'g'), '$1.');
 }
 
