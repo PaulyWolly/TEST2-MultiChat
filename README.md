@@ -217,3 +217,4 @@ Default port: 3335
 - Some features require specific browser permissions
 - Local storage must be enabled
 - Stable internet connection required for API features
+# TEST2-MultiChat
