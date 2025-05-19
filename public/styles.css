@@ -49,6 +49,7 @@ body {
 
 #mode-toggle label {
     margin-right: 10px;
+    font-weight: 700;
 }
 
 #chat-messages {
@@ -235,6 +236,15 @@ button {
 /* System bubble styling (for date/time responses) */
 .system-bubble {
     background-color: #f0f0f0 !important;  /* Light grey background */
+    border: 1px solid #e0e0e0 !important;
+    align-self: flex-start;
+    max-width: fit-content;
+    border-radius: 12px;
+    margin: 2px 0;
+}
+
+.time-date-bubble {
+    background-color: #f1dac7 !important;  /* Light grey background */
     border: 1px solid #e0e0e0 !important;
     align-self: flex-start;
     max-width: fit-content;
@@ -733,8 +743,8 @@ button {
 }
 
 .conversation-mode-checkbox {
-    height: 20px;
-    width: 20px;
+    height: 22px;
+    width: 22px;
 }
 
 /* If needed, we can also add a max-width to ensure it doesn't get too wide on large screens */
@@ -1249,7 +1259,7 @@ button {
 
 /* Status message specific styles */
 .status-default {
-    color: #0451f8;
+    /* color: #0074d9; */
     font-size: 1.7vh;
     max-width: 68%;
     font-weight: 600;
@@ -1460,4 +1470,9 @@ button {
     font-weight: 600;
     max-width: 62%;
     color: blue;
+}
+
+.status-keyword {
+    color: #111;
+    font-weight: bold;
 }
