@@ -108,6 +108,10 @@ const SPEECH_CONFIG = {
     language: 'en-US'
 };
 
+// Add at the top with other constants
+const DUMMY_PREFIX = "....................-------------------------...................................";
+const TTS_IDLE_THRESHOLD = 60000; // 60 seconds
+
 // =====================================================
 // GLOBAL SCOPED VARIABLES
 // =====================================================
@@ -210,7 +214,8 @@ const state = {
     sseRetryDelay: 1000,
     savingJoke: false,
     pendingNameChange: null,
-    lastRequestTime: Date.now()
+    lastRequestTime: Date.now(),
+    lastTTS: 0, // Add to global state
 };
 
 // =====================================================
@@ -2222,6 +2227,9 @@ async function playNextInQueue() {
         const text = state.audioQueue[0];
         console.log('Playing chunk:', text);
 
+        // Track last TTS time
+        state.lastTTS = Date.now();
+
         const response = await fetch(AUDIO_CONFIG.apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2413,6 +2421,14 @@ async function queueAudioChunk(text) {
         chunks = chunks.concat(sectionChunks);
     });
 
+    // Prepend DUMMY_PREFIX if first TTS or after idle
+    const now = Date.now();
+    if (!state.lastTTS || now - state.lastTTS > TTS_IDLE_THRESHOLD) {
+        if (chunks.length > 0) {
+            chunks[0] = DUMMY_PREFIX + chunks[0];
+        }
+    }
+
     // Add new chunks to existing queue instead of replacing
     state.audioQueue = state.audioQueue.concat(chunks);
     console.log('Queued chunks:', state.audioQueue);
@@ -2439,6 +2455,9 @@ async function playNextInQueue() {
 
         const text = state.audioQueue[0];
         console.log('Playing chunk:', text);
+
+        // Track last TTS time
+        state.lastTTS = Date.now();
 
         const response = await fetch(AUDIO_CONFIG.apiUrl, {
             method: 'POST',
@@ -4108,42 +4127,68 @@ const handleYoutube = {
 
             if (data.success && (data.video || data.videos)) {
                 const videos = data.video ? [data.video] : data.videos;
-                const messageContent = {
-                    type: 'youtube',
-                    html: `
-                        <div class="youtube-results">
-                            <p>Found ${videos.length > 1 ? 'these videos' : 'this video'} about "${query}":</p>
+                let html = '';
+                if (videos.length <= 2) {
+                    // SINGLE layout: use Bootstrap row/col, full width for one video
+                    html = `
+                        <div class="youtube-single-bubble">
+                            <p>Found result for: \"${query}\"</p>
+                            <div class="row">
+                                <div class="col-12">
+                                    <div class="video-item">
+                                        <div class="youtube-result-row">
+                                            <div class="button-thumb-group">
+                                                <a href="#" class="youtube-action-btn youtube-popup-btn" data-video-id="${videos[0].id}" role="button" tabindex="0">Play in Popup</a>
+                                                <span class="youtube-thumb-link youtube-popup-thumb" data-video-id="${videos[0].id}">
+                                                    <img src="https://img.youtube.com/vi/${videos[0].id}/hqdefault.jpg" alt="${videos[0].title}" title="Popup: ${videos[0].title}" />
+                                                </span>
+                                            </div>
+                                            <div class="button-thumb-group">
+                                                <a href="https://www.youtube.com/watch?v=${videos[0].id}" target="_blank" rel="noopener noreferrer" class="youtube-action-btn youtube-direct-link">Watch on YouTube</a>
+                                            </div>
+                                        </div>
+                                        <div class="video-title">${videos[0].title}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // MULTI layout: keep as is
+                    html = `
+                        <div class="youtube-multi-bubble">
+                            <p>Found results for: \"${query}\"</p>
                             <ol class="video-list">
                                 ${videos.map(video => `
                                     <li class="video-item">
-                                        <div class="video-title">${video.title}</div>
-                                        <div class="video-controls">
-                                            <button class="youtube-popup-btn" data-video-id="${video.id}">
-                                                Play in Popup
-                                            </button>
-                                            <a href="https://www.youtube.com/embed/${video.id}?autoplay=1&rel=0" 
-                                            target="_blank" 
-                                            rel="noopener noreferrer" 
-                                            class="youtube-direct-link">
-                                                Watch on YouTube
-                                            </a>
-                                            <!-- <div class="channel-info">By: ${video.channelTitle || ''}</div> -->
+                                        <div class="youtube-result-row">
+                                            <div class="button-thumb-group">
+                                                <a href="#" class="youtube-action-btn youtube-popup-btn" data-video-id="${video.id}" role="button" tabindex="0">Play in Popup</a>
+                                                <span class="youtube-thumb-link youtube-popup-thumb" data-video-id="${video.id}">
+                                                    <img src="https://img.youtube.com/vi/${video.id}/hqdefault.jpg" alt="${video.title}" title="Popup: ${video.title}" />
+                                                </span>
+                                            </div>
+                                            <div class="button-thumb-group">
+                                                <a href="https://www.youtube.com/watch?v=${video.id}" target="_blank" rel="noopener noreferrer" class="youtube-action-btn youtube-direct-link">Watch on YouTube</a>
+                                            </div>
                                         </div>
+                                        <div class="video-title">${video.title}</div>
                                     </li>
                                 `).join('')}
                             </ol>
                         </div>
-                    `
-                };
-
+                    `;
+                }
+                const messageContent = { type: 'youtube', html };
                 addMessageToChat('assistant', messageContent, { type: 'youtube' });
 
-                // Add click handlers for popup buttons
+                // Add click handlers for popup buttons and popup thumbnails
                 setTimeout(() => {
-                    document.querySelectorAll('.youtube-popup-btn').forEach(btn => {
-                        btn.addEventListener('click', (e) => {
-                            const videoId = e.target.getAttribute('data-video-id');
-                            this.openYoutubePopup(videoId);
+                    document.querySelectorAll('.youtube-popup-btn, .youtube-popup-thumb').forEach(el => {
+                        el.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            const videoId = el.getAttribute('data-video-id');
+                            if (videoId) handleYoutube.openYoutubePopup(videoId);
                         });
                     });
                 }, 100);
