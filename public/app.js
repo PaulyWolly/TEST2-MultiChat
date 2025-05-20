@@ -4675,3 +4675,53 @@ function restoreHonorifics(text) {
     return text.replace(new RegExp(`\\b(${honorifics.join('|')})(?=\\s|$)`, 'g'), '$1.');
 }
 
+const playlistManager = require('./components/PlaylistManager.js');
+
+// ... existing code ...
+
+// In the SINGLE video layout section:
+const singleVideoHtml = `
+  <div class="youtube-single-bubble">
+    <div class="video-title">${videos[0].title}</div>
+    <div class="button-thumb-group">
+      <a href="https://www.youtube.com/watch?v=${videos[0].id}" target="_blank" rel="noopener noreferrer" class="youtube-action-btn youtube-direct-link">Watch on YouTube</a>
+      <button class="youtube-action-btn add-to-playlist-btn" data-video='${JSON.stringify({
+        videoId: videos[0].id,
+        title: videos[0].title,
+        thumbnail: videos[0].thumbnail
+      })}'>Add to Playlist</button>
+      <a href="#" class="youtube-thumb-link" data-video-id="${videos[0].id}">
+        <img src="${videos[0].thumbnail}" alt="${videos[0].title}" class="youtube-thumb">
+      </a>
+    </div>
+  </div>
+`;
+
+// In the MULTI video layout section:
+const multiVideoHtml = `
+  <div class="youtube-multi-bubble">
+    <div class="video-title">${video.title}</div>
+    <div class="button-thumb-group">
+      <a href="https://www.youtube.com/watch?v=${video.id}" target="_blank" rel="noopener noreferrer" class="youtube-action-btn youtube-direct-link">Watch on YouTube</a>
+      <button class="youtube-action-btn add-to-playlist-btn" data-video='${JSON.stringify({
+        videoId: video.id,
+        title: video.title,
+        thumbnail: video.thumbnail
+      })}'>Add to Playlist</button>
+      <a href="#" class="youtube-thumb-link" data-video-id="${video.id}">
+        <img src="${video.thumbnail}" alt="${video.title}" class="youtube-thumb">
+      </a>
+    </div>
+  </div>
+`;
+
+// Add event listener for Add to Playlist buttons
+document.addEventListener('click', async (e) => {
+  if (e.target.classList.contains('add-to-playlist-btn')) {
+    const videoData = JSON.parse(e.target.dataset.video);
+    playlistManager.show(videoData);
+  }
+});
+
+// ... existing code ...
+
