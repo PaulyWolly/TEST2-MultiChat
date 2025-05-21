@@ -127,4 +127,5 @@ class PlaylistService {
 
 // Create and export a singleton instance
 const playlistService = new PlaylistService();
-module.exports = playlistService; 
+
+export default playlistService; 
