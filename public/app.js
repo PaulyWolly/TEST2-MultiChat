@@ -7,6 +7,15 @@
 */
 
 // =====================================================
+// IMPORTS NEEDED FOR NEW ES6 MODULES
+// =====================================================
+
+import { PlaylistManager } from './components/PlaylistManager.js';
+
+// import { YoutubeManager } from './components/YoutubeManager.js';
+
+
+// =====================================================
 // GLOBAL SCOPED CONSTANTS
 // =====================================================
 
@@ -182,6 +191,9 @@ const elements = {
     conversationStatus: document.getElementById('conversation-status'),
     videoContainer: document.getElementById('youtube-container'),
 };
+
+// Initialize PlaylistManager
+window.playlistManager = new PlaylistManager();
 
 // =====================================================
 // GLOBAL SCOPED STATE
@@ -698,12 +710,12 @@ function getPatterns() {
 }
 
 // Add these helper functions near getGreeting
-function getTimeOfDay() {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'morning';
-    if (hour < 17) return 'afternoon';
-    return 'evening';
-}
+// function getTimeOfDay() {
+//     const hour = new Date().getHours();
+//     if (hour < 12) return 'morning';
+//     if (hour < 17) return 'afternoon';
+//     return 'evening';
+// }
 
 function getHoliday(date) {
     const month = date.getMonth() + 1; // JavaScript months are 0-based
@@ -1010,11 +1022,19 @@ async function checkMicrophonePermission() {
 // =====================================================
 
 // Cleanup function
-function cleanup() {
+function stopAllAudio() {
     stopListening();
     if (state.currentAudio) {
         state.currentAudio.pause();
         state.currentAudio = null;
+    }
+}
+
+function cleanup(audio) {
+    if (audio) {
+        audio.pause();
+        audio.src = '';
+        URL.revokeObjectURL(audio.src);
     }
 }
 
@@ -2210,82 +2230,82 @@ async function playAudio(text) {
 }
 
 // Update the playNextInQueue function
-async function playNextInQueue() {
-    if (!state.audioQueue.length || state.isPlaying || state.stopRequested) {
-        if (!state.audioQueue.length || state.stopRequested) {
-            updateStatus(state.isConversationMode ? MESSAGES.STATUS.LISTENING : MESSAGES.STATUS.READY);
-            state.isAISpeaking = false;
-        }
-        return;
-    }
+// async function playNextInQueue() {
+//     if (!state.audioQueue.length || state.isPlaying || state.stopRequested) {
+//         if (!state.audioQueue.length || state.stopRequested) {
+//             updateStatus(state.isConversationMode ? MESSAGES.STATUS.LISTENING : MESSAGES.STATUS.READY);
+//             state.isAISpeaking = false;
+//         }
+//         return;
+//     }
 
-    try {
-        state.isPlaying = true;
-        state.isAISpeaking = true;
-        updateStatus(MESSAGES.STATUS.SPEAKING);
+//     try {
+//         state.isPlaying = true;
+//         state.isAISpeaking = true;
+//         updateStatus(MESSAGES.STATUS.SPEAKING);
 
-        const text = state.audioQueue[0];
-        console.log('Playing chunk:', text);
+//         const text = state.audioQueue[0];
+//         console.log('Playing chunk:', text);
 
-        // Track last TTS time
-        state.lastTTS = Date.now();
+//         // Track last TTS time
+//         state.lastTTS = Date.now();
 
-        const response = await fetch(AUDIO_CONFIG.apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                text: text,
-                voice: AUDIO_CONFIG.defaultVoice,
-                rate: AUDIO_CONFIG.rate,
-                pitch: AUDIO_CONFIG.pitch,
-                volume: AUDIO_CONFIG.volume
-            })
-        });
+//         const response = await fetch(AUDIO_CONFIG.apiUrl, {
+//             method: 'POST',
+//             headers: { 'Content-Type': 'application/json' },
+//             body: JSON.stringify({
+//                 text: text,
+//                 voice: AUDIO_CONFIG.defaultVoice,
+//                 rate: AUDIO_CONFIG.rate,
+//                 pitch: AUDIO_CONFIG.pitch,
+//                 volume: AUDIO_CONFIG.volume
+//             })
+//         });
 
-        if (!response.ok) throw new Error(`TTS API error: ${response.status}`);
+//         if (!response.ok) throw new Error(`TTS API error: ${response.status}`);
         
-        const audioBlob = await response.blob();
-        if (audioBlob.size === 0) throw new Error('Empty audio response');
+//         const audioBlob = await response.blob();
+//         if (audioBlob.size === 0) throw new Error('Empty audio response');
 
-        if (state.currentAudio) {
-            state.currentAudio.pause();
-            state.currentAudio = null;
-        }
+//         if (state.currentAudio) {
+//             state.currentAudio.pause();
+//             state.currentAudio = null;
+//         }
         
-        const audioUrl = URL.createObjectURL(audioBlob);
-        state.currentAudio = new Audio(audioUrl);
-        state.currentAudio.volume = AUDIO_CONFIG.volume;
+//         const audioUrl = URL.createObjectURL(audioBlob);
+//         state.currentAudio = new Audio(audioUrl);
+//         state.currentAudio.volume = AUDIO_CONFIG.volume;
 
-        // Wait for current chunk to finish before moving to next
-        await new Promise((resolve, reject) => {
-            state.currentAudio.onended = resolve;
-            state.currentAudio.onerror = reject;
-            state.currentAudio.play().catch(reject);
-        });
+//         // Wait for current chunk to finish before moving to next
+//         await new Promise((resolve, reject) => {
+//             state.currentAudio.onended = resolve;
+//             state.currentAudio.onerror = reject;
+//             state.currentAudio.play().catch(reject);
+//         });
 
-        URL.revokeObjectURL(audioUrl);
-        state.audioQueue.shift();  // Remove played chunk
-        state.isPlaying = false;
+//         URL.revokeObjectURL(audioUrl);
+//         state.audioQueue.shift();  // Remove played chunk
+//         state.isPlaying = false;
 
-        // Process next chunk if available
-        if (state.audioQueue.length > 0 && !state.stopRequested) {
-            setTimeout(() => playNextInQueue(), AUDIO_CONFIG.pauseDuration);
-        } else {
-            state.isAISpeaking = false;
-            updateStatus(state.isConversationMode ? MESSAGES.STATUS.LISTENING : MESSAGES.STATUS.READY);
-        }
+//         // Process next chunk if available
+//         if (state.audioQueue.length > 0 && !state.stopRequested) {
+//             setTimeout(() => playNextInQueue(), AUDIO_CONFIG.pauseDuration);
+//         } else {
+//             state.isAISpeaking = false;
+//             updateStatus(state.isConversationMode ? MESSAGES.STATUS.LISTENING : MESSAGES.STATUS.READY);
+//         }
 
-    } catch (error) {
-        console.error('Audio playback error:', error);
-        state.isPlaying = false;
-        state.isAISpeaking = false;
-        updateStatus(state.isConversationMode ? MESSAGES.STATUS.LISTENING : MESSAGES.STATUS.READY);
+//     } catch (error) {
+//         console.error('Audio playback error:', error);
+//         state.isPlaying = false;
+//         state.isAISpeaking = false;
+//         updateStatus(state.isConversationMode ? MESSAGES.STATUS.LISTENING : MESSAGES.STATUS.READY);
         
-        if (state.audioQueue.length > 0) {
-            setTimeout(() => playNextInQueue(), AUDIO_CONFIG.retryDelay);
-        }
-    }
-}
+//         if (state.audioQueue.length > 0) {
+//             setTimeout(() => playNextInQueue(), AUDIO_CONFIG.retryDelay);
+//         }
+//     }
+// }
 
 // Stop listening function
 function stopListening() {
@@ -2333,23 +2353,23 @@ function safeStartListening() {
 }
 
 // Start listening function
-function startListening() {
-    console.log('Starting listening. Current state:', {
-        isListening: state.isListening,
-        isProcessing: state.isProcessing,
-        isAISpeaking: state.isAISpeaking
-    });
+// function startListening() {
+//     console.log('Starting listening. Current state:', {
+//         isListening: state.isListening,
+//         isProcessing: state.isProcessing,
+//         isAISpeaking: state.isAISpeaking
+//     });
 
-    if (state.isProcessing || state.isAISpeaking) {
-        console.log('Cannot start listening while processing or speaking');
-        return;
-    }
+//     if (state.isProcessing || state.isAISpeaking) {
+//         console.log('Cannot start listening while processing or speaking');
+//         return;
+//     }
 
-    // Always create a fresh instance
-    safeStartListening();
-    state.lastAudioInput = Date.now();
-    startInactivityTimer();
-}
+//     // Always create a fresh instance
+//     safeStartListening();
+//     state.lastAudioInput = Date.now();
+//     startInactivityTimer();
+// }
 
 // Reset audio state function
 function resetAudioState() {
@@ -2439,82 +2459,82 @@ async function queueAudioChunk(text) {
 }
 
 // Update playNextInQueue function to ensure sequential playback
-async function playNextInQueue() {
-    if (!state.audioQueue.length || state.isPlaying || state.stopRequested) {
-        if (!state.audioQueue.length || state.stopRequested) {
-            updateStatus(state.isConversationMode ? MESSAGES.STATUS.LISTENING : MESSAGES.STATUS.READY);
-            state.isAISpeaking = false;
-        }
-        return;
-    }
+// async function playNextInQueue() {
+//     if (!state.audioQueue.length || state.isPlaying || state.stopRequested) {
+//         if (!state.audioQueue.length || state.stopRequested) {
+//             updateStatus(state.isConversationMode ? MESSAGES.STATUS.LISTENING : MESSAGES.STATUS.READY);
+//             state.isAISpeaking = false;
+//         }
+//         return;
+//     }
 
-    try {
-        state.isPlaying = true;
-        state.isAISpeaking = true;
-        updateStatus(MESSAGES.STATUS.SPEAKING);
+//     try {
+//         state.isPlaying = true;
+//         state.isAISpeaking = true;
+//         updateStatus(MESSAGES.STATUS.SPEAKING);
 
-        const text = state.audioQueue[0];
-        console.log('Playing chunk:', text);
+//         const text = state.audioQueue[0];
+//         console.log('Playing chunk:', text);
 
-        // Track last TTS time
-        state.lastTTS = Date.now();
+//         // Track last TTS time
+//         state.lastTTS = Date.now();
 
-        const response = await fetch(AUDIO_CONFIG.apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                text: text,
-                voice: AUDIO_CONFIG.defaultVoice,
-                rate: AUDIO_CONFIG.rate,
-                pitch: AUDIO_CONFIG.pitch,
-                volume: AUDIO_CONFIG.volume
-            })
-        });
+//         const response = await fetch(AUDIO_CONFIG.apiUrl, {
+//             method: 'POST',
+//             headers: { 'Content-Type': 'application/json' },
+//             body: JSON.stringify({
+//                 text: text,
+//                 voice: AUDIO_CONFIG.defaultVoice,
+//                 rate: AUDIO_CONFIG.rate,
+//                 pitch: AUDIO_CONFIG.pitch,
+//                 volume: AUDIO_CONFIG.volume
+//             })
+//         });
 
-        if (!response.ok) throw new Error(`TTS API error: ${response.status}`);
+//         if (!response.ok) throw new Error(`TTS API error: ${response.status}`);
         
-        const audioBlob = await response.blob();
-        if (audioBlob.size === 0) throw new Error('Empty audio response');
+//         const audioBlob = await response.blob();
+//         if (audioBlob.size === 0) throw new Error('Empty audio response');
 
-        if (state.currentAudio) {
-            state.currentAudio.pause();
-            state.currentAudio = null;
-        }
+//         if (state.currentAudio) {
+//             state.currentAudio.pause();
+//             state.currentAudio = null;
+//         }
         
-        const audioUrl = URL.createObjectURL(audioBlob);
-        state.currentAudio = new Audio(audioUrl);
-        state.currentAudio.volume = AUDIO_CONFIG.volume;
+//         const audioUrl = URL.createObjectURL(audioBlob);
+//         state.currentAudio = new Audio(audioUrl);
+//         state.currentAudio.volume = AUDIO_CONFIG.volume;
 
-        // Wait for current chunk to finish before moving to next
-        await new Promise((resolve, reject) => {
-            state.currentAudio.onended = resolve;
-            state.currentAudio.onerror = reject;
-            state.currentAudio.play().catch(reject);
-        });
+//         // Wait for current chunk to finish before moving to next
+//         await new Promise((resolve, reject) => {
+//             state.currentAudio.onended = resolve;
+//             state.currentAudio.onerror = reject;
+//             state.currentAudio.play().catch(reject);
+//         });
 
-        URL.revokeObjectURL(audioUrl);
-        state.audioQueue.shift();  // Remove played chunk
-        state.isPlaying = false;
+//         URL.revokeObjectURL(audioUrl);
+//         state.audioQueue.shift();  // Remove played chunk
+//         state.isPlaying = false;
 
-        // Process next chunk if available
-        if (state.audioQueue.length > 0 && !state.stopRequested) {
-            setTimeout(() => playNextInQueue(), AUDIO_CONFIG.pauseDuration);
-        } else {
-            state.isAISpeaking = false;
-            updateStatus(state.isConversationMode ? MESSAGES.STATUS.LISTENING : MESSAGES.STATUS.READY);
-        }
+//         // Process next chunk if available
+//         if (state.audioQueue.length > 0 && !state.stopRequested) {
+//             setTimeout(() => playNextInQueue(), AUDIO_CONFIG.pauseDuration);
+//         } else {
+//             state.isAISpeaking = false;
+//             updateStatus(state.isConversationMode ? MESSAGES.STATUS.LISTENING : MESSAGES.STATUS.READY);
+//         }
 
-    } catch (error) {
-        console.error('Audio playback error:', error);
-        state.isPlaying = false;
-        state.isAISpeaking = false;
-        updateStatus(state.isConversationMode ? MESSAGES.STATUS.LISTENING : MESSAGES.STATUS.READY);
+//     } catch (error) {
+//         console.error('Audio playback error:', error);
+//         state.isPlaying = false;
+//         state.isAISpeaking = false;
+//         updateStatus(state.isConversationMode ? MESSAGES.STATUS.LISTENING : MESSAGES.STATUS.READY);
         
-        if (state.audioQueue.length > 0) {
-            setTimeout(() => playNextInQueue(), AUDIO_CONFIG.retryDelay);
-        }
-    }
-}
+//         if (state.audioQueue.length > 0) {
+//             setTimeout(() => playNextInQueue(), AUDIO_CONFIG.retryDelay);
+//         }
+//     }
+// }
 
 
 // =====================================================
@@ -3256,7 +3276,7 @@ async function storePersonalInfo(info) {
 }
 
 // Add validation when retrieving personal info
-function getPersonalInfo(type) {
+function getPersonalInfoStorage(type) {
     return localStorage.getItem(type);
 }
 
@@ -4112,6 +4132,58 @@ const handleYoutube = {
             .replace(/about/i, '')
             .trim();
 
+        // DUMMY VIDEO MODE
+        if (query === 'dummy') {
+            const dummyVideo = {
+                id: 'local-dummy',
+                title: '',
+                thumbnail: '/assets/img/lucky-tiger-promo-snapshot.png',
+                localUrl: '/assets/video/lucky-tiger-promo-video.mp4'
+            };
+            const html = `
+                <div class="youtube-single-bubble">
+                    <p>Found result for: \"dummy\" (local dev video)</p>
+                    <div class="video-item">
+                        <div class="video-title">${dummyVideo.title}</div>
+                        <div class="button-thumb-group top-buttons">
+                            <a href="#" class="youtube-action-btn youtube-popup-btn" data-local-video="${dummyVideo.localUrl}" role="button" tabindex="0">Play in Popup</a>
+                            <button class="youtube-action-btn add-to-playlist-btn" data-video='${JSON.stringify(dummyVideo)}' title="Add to Playlist">+</button>
+                        </div>
+                        <span class="youtube-thumb-link youtube-popup-thumb" data-local-video="${dummyVideo.localUrl}">
+                            <img src="${dummyVideo.thumbnail}" alt="${dummyVideo.title}" title="Local Video" style="max-width:250px; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.12); display:block; margin:0 auto;" />
+                        </span>
+                        <div class="button-thumb-group bottom-buttons">
+                            <a href="#" class="youtube-action-btn youtube-direct-link" style="opacity:0.5;pointer-events:none;">Watch on YouTube (N/A)</a>
+                        </div>
+                    </div>
+                </div>
+            `;
+            const messageContent = { type: 'youtube', html };
+            addMessageToChat('assistant', messageContent, { type: 'youtube' });
+            // Add click handler for local video popup and playlist button
+            setTimeout(() => {
+                document.querySelectorAll('.youtube-popup-btn[data-local-video]').forEach(el => {
+                    el.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const videoUrl = el.getAttribute('data-local-video');
+                        showLocalVideoModal(videoUrl, dummyVideo.title);
+                    });
+                });
+                document.querySelectorAll('.add-to-playlist-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const videoData = JSON.parse(btn.getAttribute('data-video'));
+                        if (window.playlistManager) {
+                            window.playlistManager.show(videoData);
+                        } else {
+                            console.error('PlaylistManager not initialized');
+                        }
+                    });
+                });
+            }, 100);
+            return true;
+        }
+
         try {
             const response = await fetch('/api/youtube/search', {
                 method: 'POST',
@@ -4125,74 +4197,97 @@ const handleYoutube = {
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             const data = await response.json();
 
-            if (data.success && (data.video || data.videos)) {
-                const videos = data.video ? [data.video] : data.videos;
-                let html = '';
-                if (videos.length <= 2) {
-                    // SINGLE layout: use Bootstrap row/col, full width for one video
-                    html = `
-                        <div class="youtube-single-bubble">
-                            <p>Found result for: \"${query}\"</p>
-                            <div class="row">
-                                <div class="col-12">
-                                    <div class="video-item">
-                                        <div class="youtube-result-row">
-                                            <div class="button-thumb-group">
-                                                <a href="#" class="youtube-action-btn youtube-popup-btn" data-video-id="${videos[0].id}" role="button" tabindex="0">Play in Popup</a>
-                                                <span class="youtube-thumb-link youtube-popup-thumb" data-video-id="${videos[0].id}">
-                                                    <img src="https://img.youtube.com/vi/${videos[0].id}/hqdefault.jpg" alt="${videos[0].title}" title="Popup: ${videos[0].title}" />
-                                                </span>
-                                            </div>
-                                            <div class="button-thumb-group">
-                                                <a href="https://www.youtube.com/watch?v=${videos[0].id}" target="_blank" rel="noopener noreferrer" class="youtube-action-btn youtube-direct-link">Watch on YouTube</a>
-                                            </div>
-                                        </div>
-                                        <div class="video-title">${videos[0].title}</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    // MULTI layout: keep as is
-                    html = `
-                        <div class="youtube-multi-bubble">
-                            <p>Found results for: \"${query}\"</p>
-                            <ol class="video-list">
-                                ${videos.map(video => `
-                                    <li class="video-item">
-                                        <div class="youtube-result-row">
-                                            <div class="button-thumb-group">
-                                                <a href="#" class="youtube-action-btn youtube-popup-btn" data-video-id="${video.id}" role="button" tabindex="0">Play in Popup</a>
-                                                <span class="youtube-thumb-link youtube-popup-thumb" data-video-id="${video.id}">
-                                                    <img src="https://img.youtube.com/vi/${video.id}/hqdefault.jpg" alt="${video.title}" title="Popup: ${video.title}" />
-                                                </span>
-                                            </div>
-                                            <div class="button-thumb-group">
-                                                <a href="https://www.youtube.com/watch?v=${video.id}" target="_blank" rel="noopener noreferrer" class="youtube-action-btn youtube-direct-link">Watch on YouTube</a>
-                                            </div>
-                                        </div>
-                                        <div class="video-title">${video.title}</div>
-                                    </li>
-                                `).join('')}
-                            </ol>
-                        </div>
-                    `;
-                }
-                const messageContent = { type: 'youtube', html };
-                addMessageToChat('assistant', messageContent, { type: 'youtube' });
-
-                // Add click handlers for popup buttons and popup thumbnails
-                setTimeout(() => {
-                    document.querySelectorAll('.youtube-popup-btn, .youtube-popup-thumb').forEach(el => {
-                        el.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            const videoId = el.getAttribute('data-video-id');
-                            if (videoId) handleYoutube.openYoutubePopup(videoId);
-                        });
-                    });
-                }, 100);
+            // Always treat a single video as a SINGLE layout
+            let videos = [];
+            if (data.video) {
+                videos = [data.video];
+            } else if (data.videos) {
+                videos = data.videos;
             }
+
+            let html = '';
+            if (videos.length === 1) {
+                // SINGLE layout for any single video
+                html = `
+                    <div class="youtube-single-bubble">
+                        <p>Found result for: "${query}"</p>
+                        <div class="video-item">
+                            <div class="button-thumb-group top-buttons">
+                                <a href="#" class="youtube-action-btn youtube-popup-btn" data-video-id="${videos[0].id}" role="button" tabindex="0">Play in Popup</a>
+                                <button class="youtube-action-btn add-to-playlist-btn" data-video='${JSON.stringify({
+                                    videoId: videos[0].id,
+                                    title: videos[0].title,
+                                    thumbnail: videos[0].thumbnail
+                                })}' title="Add to Playlist">+</button>
+                            </div>
+                            <span class="youtube-thumb-link youtube-popup-thumb" data-video-id="${videos[0].id}">
+                                <img src="https://img.youtube.com/vi/${videos[0].id}/hqdefault.jpg" alt="${videos[0].title}" title="Popup: ${videos[0].title}" />
+                            </span>
+                            <div class="button-thumb-group bottom-buttons">
+                                <a href="https://www.youtube.com/watch?v=${videos[0].id}" target="_blank" rel="noopener noreferrer" class="youtube-action-btn youtube-direct-link">Watch on YouTube</a>
+                            </div>
+                            <div class="video-title">${videos[0].title}</div>
+                        </div>
+                    </div>
+                `;
+            } else if (videos.length > 1) {
+                // MULTI layout
+                html = `
+                    <div class="youtube-multi-bubble">
+                        <p>Found results for: "${query}"</p>
+                        <div class="video-list">
+                            ${videos.map(video => `
+                                <div class="video-item">
+                                    <div class="button-thumb-group top-buttons">
+                                        <a href="#" class="youtube-action-btn youtube-popup-btn" data-video-id="${video.id}" role="button" tabindex="0">Play in Popup</a>
+                                        <button class="youtube-action-btn add-to-playlist-btn" data-video='${JSON.stringify({
+                                            videoId: video.id,
+                                            title: video.title,
+                                            thumbnail: video.thumbnail
+                                        })}' title="Add to Playlist">+</button>
+                                    </div>
+                                    <span class="youtube-thumb-link youtube-popup-thumb" data-video-id="${video.id}">
+                                        <img src="https://img.youtube.com/vi/${video.id}/hqdefault.jpg" alt="${video.title}" title="Popup: ${video.title}" />
+                                    </span>
+                                    <div class="button-thumb-group bottom-buttons">
+                                        <a href="https://www.youtube.com/watch?v=${video.id}" target="_blank" rel="noopener noreferrer" class="youtube-action-btn youtube-direct-link">Watch on YouTube</a>
+                                    </div>
+                                    <div class="video-title">${video.title}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            } else {
+                html = '<div>No results found.</div>';
+            }
+            const messageContent = { type: 'youtube', html };
+            addMessageToChat('assistant', messageContent, { type: 'youtube' });
+            
+            // Add click handlers for popup and playlist buttons
+            setTimeout(() => {
+                // Handle popup buttons
+                document.querySelectorAll('.youtube-popup-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const videoId = btn.getAttribute('data-video-id');
+                        this.openYoutubePopup(videoId);
+                    });
+                });
+
+                // Handle playlist buttons
+                document.querySelectorAll('.add-to-playlist-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const videoData = JSON.parse(btn.getAttribute('data-video'));
+                        if (window.playlistManager) {
+                            window.playlistManager.show(videoData);
+                        } else {
+                            console.error('PlaylistManager not initialized');
+                        }
+                    });
+                });
+            }, 100);
             return true;
         } catch (error) {
             console.error('Error with YouTube request:', error);
@@ -4561,14 +4656,6 @@ function fadeAudio(audio, from, to, duration) {
     });
 }
 
-function cleanup(audio) {
-    if (audio) {
-        audio.pause();
-        audio.src = '';
-        URL.revokeObjectURL(audio.src);
-    }
-}
-
 // Add this new function to handle microphone permissions
 async function requestMicrophonePermission() {
     try {
@@ -4675,7 +4762,7 @@ function restoreHonorifics(text) {
     return text.replace(new RegExp(`\\b(${honorifics.join('|')})(?=\\s|$)`, 'g'), '$1.');
 }
 
-const playlistManager = require('./components/PlaylistManager.js');
+
 
 // ... existing code ...
 
@@ -4683,16 +4770,14 @@ const playlistManager = require('./components/PlaylistManager.js');
 const singleVideoHtml = `
   <div class="youtube-single-bubble">
     <div class="video-title">${videos[0].title}</div>
-    <div class="button-thumb-group">
-      <a href="https://www.youtube.com/watch?v=${videos[0].id}" target="_blank" rel="noopener noreferrer" class="youtube-action-btn youtube-direct-link">Watch on YouTube</a>
-      <button class="youtube-action-btn add-to-playlist-btn" data-video='${JSON.stringify({
-        videoId: videos[0].id,
-        title: videos[0].title,
-        thumbnail: videos[0].thumbnail
-      })}'>Add to Playlist</button>
-      <a href="#" class="youtube-thumb-link" data-video-id="${videos[0].id}">
-        <img src="${videos[0].thumbnail}" alt="${videos[0].title}" class="youtube-thumb">
-      </a>
+    <div class="button-thumb-group top-buttons">
+      <!-- Play in Popup and + button here -->
+    </div>
+    <span class="youtube-thumb-link youtube-popup-thumb" ...>
+      <img ... />
+    </span>
+    <div class="button-thumb-group bottom-buttons">
+      <!-- Watch on YouTube button here -->
     </div>
   </div>
 `;
@@ -4701,16 +4786,14 @@ const singleVideoHtml = `
 const multiVideoHtml = `
   <div class="youtube-multi-bubble">
     <div class="video-title">${video.title}</div>
-    <div class="button-thumb-group">
-      <a href="https://www.youtube.com/watch?v=${video.id}" target="_blank" rel="noopener noreferrer" class="youtube-action-btn youtube-direct-link">Watch on YouTube</a>
-      <button class="youtube-action-btn add-to-playlist-btn" data-video='${JSON.stringify({
-        videoId: video.id,
-        title: video.title,
-        thumbnail: video.thumbnail
-      })}'>Add to Playlist</button>
-      <a href="#" class="youtube-thumb-link" data-video-id="${video.id}">
-        <img src="${video.thumbnail}" alt="${video.title}" class="youtube-thumb">
-      </a>
+    <div class="button-thumb-group top-buttons">
+      <!-- Play in Popup and + button here -->
+    </div>
+    <span class="youtube-thumb-link youtube-popup-thumb" ...>
+      <img ... />
+    </span>
+    <div class="button-thumb-group bottom-buttons">
+      <!-- Watch on YouTube button here -->
     </div>
   </div>
 `;
@@ -4724,4 +4807,31 @@ document.addEventListener('click', async (e) => {
 });
 
 // ... existing code ...
-
+function showLocalVideoModal(videoUrl, title) {
+    // Remove any existing modal
+    const existing = document.getElementById('local-video-modal');
+    if (existing) existing.remove();
+    // Create modal
+    const modal = document.createElement('div');
+    modal.id = 'local-video-modal';
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100vw';
+    modal.style.height = '100vh';
+    modal.style.background = 'rgba(0,0,0,0.8)';
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    modal.style.zIndex = '9999';
+    modal.innerHTML = `
+        <div style="background:#222;padding:24px;border-radius:12px;max-width:90vw;max-height:90vh;display:flex;flex-direction:column;align-items:center;">
+            <button id="close-local-video-modal" style="align-self:flex-end;margin-bottom:8px;font-size:1.5em;">&times;</button>
+            <h2 style="color:#fff;margin-bottom:12px;">${title}</h2>
+            <video src="${videoUrl}" controls autoplay style="max-width:80vw;max-height:70vh;border-radius:8px;background:#000;"></video>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    document.getElementById('close-local-video-modal').onclick = () => modal.remove();
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+}

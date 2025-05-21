@@ -1,6 +1,6 @@
-const playlistService = require('../services/playlist.service.js');
+import playlistService from '../services/playlist.service.js';
 
-class PlaylistManager {
+export class PlaylistManager {
   constructor() {
     this.dialog = null;
     this.currentVideo = null;
@@ -171,6 +171,7 @@ class PlaylistManager {
 
     // Add to DOM
     document.body.appendChild(this.dialog);
+    this.dialog.style.display = 'none';
   }
 
   async show(video) {
@@ -324,4 +325,5 @@ class PlaylistManager {
 
 // Create and export a singleton instance
 const playlistManager = new PlaylistManager();
-module.exports = playlistManager; 
+
+export default playlistManager; 
