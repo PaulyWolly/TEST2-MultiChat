@@ -10,9 +10,19 @@ export class PlaylistManager {
   }
 
   async init() {
+    console.log('PlaylistManager.init() called');
     // Create dialog element
     this.dialog = document.createElement('div');
     this.dialog.className = 'playlist-manager-dialog';
+    this.dialog.style.display = 'none';  // Start hidden
+    this.dialog.style.position = 'fixed';
+    this.dialog.style.top = '0';
+    this.dialog.style.left = '0';
+    this.dialog.style.width = '100%';
+    this.dialog.style.height = '100%';
+    this.dialog.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    this.dialog.style.zIndex = '9999';
+    
     this.dialog.innerHTML = `
       <div class="playlist-manager-content">
         <div class="playlist-manager-header">
@@ -30,156 +40,39 @@ export class PlaylistManager {
           <div class="playlist-content">
             <div class="current-playlist-header">
               <h3 class="current-playlist-name">Select a playlist</h3>
-              <div class="playlist-actions">
-                <input type="text" class="rename-playlist-input" placeholder="New name">
-                <button class="rename-playlist-btn">Rename</button>
-              </div>
             </div>
+            <div class="pending-video-container"></div>
             <div class="videos-container"></div>
+            <button class="add-to-playlist-btn" disabled>Add to Playlist</button>
           </div>
         </div>
       </div>
     `;
 
-    // Add styles
-    const style = document.createElement('style');
-    style.textContent = `
-      .playlist-manager-dialog {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.5);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 1000;
-      }
-
-      .playlist-manager-content {
-        background: white;
-        border-radius: 8px;
-        width: 80%;
-        max-width: 1200px;
-        max-height: 80vh;
-        display: flex;
-        flex-direction: column;
-      }
-
-      .playlist-manager-header {
-        padding: 16px;
-        border-bottom: 1px solid #eee;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      .playlist-manager-body {
-        display: flex;
-        flex: 1;
-        overflow: hidden;
-      }
-
-      .playlist-list {
-        width: 300px;
-        border-right: 1px solid #eee;
-        padding: 16px;
-        display: flex;
-        flex-direction: column;
-      }
-
-      .playlist-content {
-        flex: 1;
-        padding: 16px;
-        overflow-y: auto;
-      }
-
-      .playlist-actions {
-        margin-bottom: 16px;
-      }
-
-      .playlist-item {
-        padding: 8px;
-        cursor: pointer;
-        border-radius: 4px;
-      }
-
-      .playlist-item:hover {
-        background: #f5f5f5;
-      }
-
-      .playlist-item.active {
-        background: #e3f2fd;
-      }
-
-      .video-item {
-        display: flex;
-        align-items: center;
-        padding: 8px;
-        border-bottom: 1px solid #eee;
-      }
-
-      .video-thumbnail {
-        width: 120px;
-        margin-right: 16px;
-      }
-
-      .video-info {
-        flex: 1;
-      }
-
-      .video-actions {
-        display: flex;
-        gap: 8px;
-      }
-
-      button {
-        padding: 8px 16px;
-        border: none;
-        border-radius: 4px;
-        background: #2196f3;
-        color: white;
-        cursor: pointer;
-      }
-
-      button:hover {
-        background: #1976d2;
-      }
-
-      input {
-        padding: 8px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        margin-right: 8px;
-      }
-
-      .error-message {
-        color: #f44336;
-        margin: 8px 0;
-        padding: 8px;
-        background: #ffebee;
-        border-radius: 4px;
-      }
-    `;
-    document.head.appendChild(style);
+    // Add to DOM immediately
+    document.body.appendChild(this.dialog);
+    console.log('Dialog added to DOM');
 
     // Add event listeners
     this.dialog.querySelector('.close-btn').addEventListener('click', () => this.hide());
     this.dialog.querySelector('.create-playlist-btn').addEventListener('click', () => this.createPlaylist());
-    this.dialog.querySelector('.rename-playlist-btn').addEventListener('click', () => this.renamePlaylist());
-
-    // Add to DOM
-    document.body.appendChild(this.dialog);
-    this.dialog.style.display = 'none';
+    this.dialog.querySelector('.add-to-playlist-btn').addEventListener('click', () => this.addCurrentVideoToPlaylist());
+    
+    console.log('PlaylistManager initialization complete');
   }
 
-  async show(video) {
+  async show(video = null) {
+    console.log('PlaylistManager.show() called with video:', video);
     this.currentVideo = video;
     try {
       await this.loadPlaylists();
+      this.renderPendingVideo();
       this.dialog.style.display = 'flex';
+      this.dialog.style.justifyContent = 'center';
+      this.dialog.style.alignItems = 'center';
+      console.log('Dialog should now be visible');
     } catch (error) {
+      console.error('Error showing playlist manager:', error);
       this.showError('Failed to load playlists. Please try again.');
     }
   }
@@ -213,16 +106,80 @@ export class PlaylistManager {
 
   renderPlaylists() {
     const container = this.dialog.querySelector('.playlists-container');
+    container.style.marginTop = '18px';
     container.innerHTML = this.playlists.map(playlist => `
-      <div class="playlist-item ${playlist._id === this.selectedPlaylistId ? 'active' : ''}" 
-           data-id="${playlist._id}">
-        ${playlist.name} (${playlist.videos.length})
+      <div class="playlist-item${playlist._id === this.selectedPlaylistId ? ' active' : ''}" data-id="${playlist._id}" style="cursor:pointer;">
+        <span class="playlist-name">${playlist.name}</span>
+        <span class="playlist-count">(${playlist.videos.length})</span>
       </div>
     `).join('');
 
     container.querySelectorAll('.playlist-item').forEach(item => {
-      item.addEventListener('click', () => this.selectPlaylist(item.dataset.id));
+      item.addEventListener('click', (e) => {
+        if (e.target.classList.contains('edit-playlist-btn') || e.target.classList.contains('submit-rename-btn') || e.target.classList.contains('rename-playlist-input')) return;
+        this.selectPlaylist(item.dataset.id);
+      });
+      item.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        item.classList.add('drag-over');
+      });
+      item.addEventListener('dragleave', () => {
+        item.classList.remove('drag-over');
+      });
+      item.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        item.classList.remove('drag-over');
+        try {
+          const video = JSON.parse(e.dataTransfer.getData('application/json'));
+          await this.addVideoToPlaylistById(item.dataset.id, video);
+        } catch (err) {
+          this.showError('Failed to add video by drag-and-drop.');
+        }
+      });
+      item.style.cursor = 'pointer';
     });
+
+    // Render the active playlist name with pencil above the table
+    const headerContainer = this.dialog.querySelector('.current-playlist-header');
+    headerContainer.style.position = 'relative';
+    const playlist = this.playlists.find(p => p._id === this.selectedPlaylistId);
+    if (playlist) {
+      headerContainer.innerHTML = `
+        <div style="display:inline-flex;align-items:center;gap:10px;">
+          <h3 class="current-playlist-name" style="display:inline-block;font-weight:bold;vertical-align:middle;">${playlist.name}</h3>
+          <button class="edit-playlist-btn" title="Rename Playlist" data-id="${playlist._id}" style="font-size:1.1em;vertical-align:middle;background:transparent;border:none;cursor:pointer;">&#9998;</button>
+          <span class="rename-controls" style="display:none;margin-left:8px;">
+            <input type="text" class="rename-playlist-input" value="${playlist.name}" style="font-size:1em;width:120px;">
+            <button class="submit-rename-btn" data-id="${playlist._id}" style="font-size:1em;">✔</button>
+          </span>
+        </div>
+      `;
+      const btn = headerContainer.querySelector('.edit-playlist-btn');
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        headerContainer.querySelector('.current-playlist-name').style.display = 'none';
+        btn.style.display = 'none';
+        const controls = headerContainer.querySelector('.rename-controls');
+        controls.style.display = 'inline-block';
+        controls.querySelector('.rename-playlist-input').focus();
+      });
+      const submitBtn = headerContainer.querySelector('.submit-rename-btn');
+      submitBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const input = headerContainer.querySelector('.rename-playlist-input');
+        const newName = input.value.trim();
+        if (!newName) return;
+        await this.renamePlaylist(submitBtn.dataset.id, newName);
+        headerContainer.querySelector('.current-playlist-name').textContent = newName;
+        headerContainer.querySelector('.current-playlist-name').style.display = '';
+        btn.style.display = '';
+        headerContainer.querySelector('.rename-controls').style.display = 'none';
+      });
+    } else {
+      headerContainer.innerHTML = '<h3 class="current-playlist-name">Select a playlist</h3>';
+    }
+    // Always render the pending video in the header area, even if no playlist is selected
+    this.renderPendingVideo();
   }
 
   async selectPlaylist(playlistId) {
@@ -233,38 +190,58 @@ export class PlaylistManager {
       this.renderVideos(playlist.videos);
     }
     this.renderPlaylists();
+    const addBtn = this.dialog.querySelector('.add-to-playlist-btn');
+    addBtn.disabled = !playlistId;
   }
 
   renderVideos(videos) {
     const container = this.dialog.querySelector('.videos-container');
-    container.innerHTML = videos.map(video => `
-      <div class="video-item">
-        <img class="video-thumbnail" src="${video.thumbnail}" alt="${video.title}">
-        <div class="video-info">
-          <div class="video-title">${video.title}</div>
-        </div>
-        <div class="video-actions">
-          <button class="remove-video-btn" data-id="${video.videoId}">Remove</button>
-          <select class="move-to-playlist">
-            <option value="">Move to...</option>
-            ${this.playlists
-              .filter(p => p._id !== this.selectedPlaylistId)
-              .map(p => `<option value="${p._id}">${p.name}</option>`)
-              .join('')}
-          </select>
-        </div>
-      </div>
-    `).join('');
+    container.innerHTML = `
+      <table class="playlist-videos-table">
+        <thead>
+          <tr>
+            <th>Video</th>
+            <th>Title</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${videos.map(video => `
+            <tr class="playlist-video-row">
+              <td><img class="video-thumbnail" src="${video.thumbnail}" alt="${video.title}" title="${video.title}" /></td>
+              <td>${video.title}</td>
+              <td style="text-align:right;">
+                <button class="action-btn view-video-btn" title="View/Play" data-local-url="${video.localUrl || ''}">&#128065;</button>
+                <button class="action-btn remove-video-btn" title="Remove" data-id="${video.videoId}">&#128465;</button>
+                <select class="move-to-playlist">
+                  <option value="">Move to...</option>
+                  ${this.playlists.filter(p => p._id !== this.selectedPlaylistId).map(p => `<option value="${p._id}">${p.name}</option>`).join('')}
+                </select>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
 
-    // Add event listeners
+    // Add event listeners for actions
+    container.querySelectorAll('.view-video-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const url = btn.dataset.localUrl;
+        const title = btn.closest('tr').querySelector('td:nth-child(2)').textContent;
+        this.hide();
+        setTimeout(() => {
+          if (url) showLocalVideoModal(url, title);
+        }, 200);
+      });
+    });
     container.querySelectorAll('.remove-video-btn').forEach(btn => {
       btn.addEventListener('click', () => this.removeVideo(btn.dataset.id));
     });
-
     container.querySelectorAll('.move-to-playlist').forEach(select => {
       select.addEventListener('change', (e) => {
         if (e.target.value) {
-          this.moveVideo(select.closest('.video-item').querySelector('.remove-video-btn').dataset.id, e.target.value);
+          this.moveVideo(select.closest('tr').querySelector('.remove-video-btn').dataset.id, e.target.value);
           e.target.value = '';
         }
       });
@@ -285,15 +262,10 @@ export class PlaylistManager {
     }
   }
 
-  async renamePlaylist() {
-    if (!this.selectedPlaylistId) return;
-    const input = this.dialog.querySelector('.rename-playlist-input');
-    const name = input.value.trim();
-    if (!name) return;
-
+  async renamePlaylist(playlistId, name) {
+    if (!playlistId) return;
     try {
-      await playlistService.renamePlaylist(this.selectedPlaylistId, name);
-      input.value = '';
+      await playlistService.renamePlaylist(playlistId, name);
       await this.loadPlaylists();
     } catch (error) {
       this.showError('Failed to rename playlist. Please try again.');
@@ -319,6 +291,71 @@ export class PlaylistManager {
       await this.loadPlaylists();
     } catch (error) {
       this.showError('Failed to move video. Please try again.');
+    }
+  }
+
+  renderPendingVideo() {
+    // Only render the pending video absolutely next to the playlist name header
+    const headerContainer = this.dialog.querySelector('.current-playlist-header');
+    // Remove any old pending video container
+    const oldPending = this.dialog.querySelector('.pending-video-container');
+    if (oldPending) oldPending.innerHTML = '';
+    // Remove any previous .pending-video-abs
+    const prevAbs = headerContainer.querySelector('.pending-video-abs');
+    if (prevAbs) prevAbs.remove();
+    if (!this.currentVideo || !headerContainer) return;
+    // Create and append the absolutely positioned pending video
+    const absDiv = document.createElement('div');
+    absDiv.className = 'pending-video-abs';
+    absDiv.innerHTML = `
+      <div class="pending-video" draggable="true" id="pending-video">
+        <span class="drag-icon" style="font-size: 2.2em; margin-right: 14px; cursor: grab; color: #2196f3;">&#9776;</span>
+        <img src="${this.currentVideo.thumbnail}" alt="" />
+        <span style="font-weight:bold; margin-left:10px;">${this.currentVideo.title || 'Untitled Video'}</span>
+        <span style="color:#2196f3;margin-left:18px;">Drag to playlist</span>
+      </div>
+    `;
+    headerContainer.appendChild(absDiv);
+    const pending = absDiv.querySelector('.pending-video');
+    pending.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('application/json', JSON.stringify(this.currentVideo));
+    });
+  }
+
+  async addCurrentVideoToPlaylist() {
+    if (!this.selectedPlaylistId || !this.currentVideo) return;
+    try {
+      await playlistService.addVideoToPlaylist(this.selectedPlaylistId, {
+        videoId: this.currentVideo.id || this.currentVideo.videoId,
+        title: this.currentVideo.title && this.currentVideo.title.trim() ? this.currentVideo.title : 'Untitled Video',
+        thumbnail: this.currentVideo.thumbnail
+      });
+      this.showError('Video added to playlist!');
+      await this.loadPlaylists();
+      this.renderVideos(this.playlists.find(p => p._id === this.selectedPlaylistId)?.videos || []);
+      this.currentVideo = null;
+      this.renderPendingVideo();
+    } catch (error) {
+      this.showError('Failed to add video to playlist.');
+    }
+    this.currentVideo = null;
+    this.renderPendingVideo();
+  }
+
+  async addVideoToPlaylistById(playlistId, video) {
+    try {
+      await playlistService.addVideoToPlaylist(playlistId, {
+        videoId: video.id || video.videoId,
+        title: video.title && video.title.trim() ? video.title : 'Untitled Video',
+        thumbnail: video.thumbnail
+      });
+      this.showError('Video added to playlist!');
+      await this.loadPlaylists();
+      this.renderVideos(this.playlists.find(p => p._id === playlistId)?.videos || []);
+      this.currentVideo = null;
+      this.renderPendingVideo();
+    } catch (error) {
+      this.showError('Failed to add video to playlist.');
     }
   }
 }

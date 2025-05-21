@@ -5,11 +5,7 @@ class PlaylistService {
 
   async getPlaylists() {
     try {
-      const response = await fetch(this.baseUrl, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      const response = await fetch(`${this.baseUrl}?sessionId=${window.sessionId}`);
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Failed to fetch playlists');
@@ -23,11 +19,10 @@ class PlaylistService {
 
   async createPlaylist(name) {
     try {
-      const response = await fetch(this.baseUrl, {
+      const response = await fetch(`${this.baseUrl}?sessionId=${window.sessionId}`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ name })
       });
@@ -44,11 +39,10 @@ class PlaylistService {
 
   async addVideoToPlaylist(playlistId, video) {
     try {
-      const response = await fetch(`${this.baseUrl}/${playlistId}/videos`, {
+      const response = await fetch(`${this.baseUrl}/${playlistId}/videos?sessionId=${window.sessionId}`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(video)
       });
@@ -65,11 +59,8 @@ class PlaylistService {
 
   async removeVideoFromPlaylist(playlistId, videoId) {
     try {
-      const response = await fetch(`${this.baseUrl}/${playlistId}/videos/${videoId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+      const response = await fetch(`${this.baseUrl}/${playlistId}/videos/${videoId}?sessionId=${window.sessionId}`, {
+        method: 'DELETE'
       });
       if (!response.ok) {
         const error = await response.json();
@@ -82,15 +73,14 @@ class PlaylistService {
     }
   }
 
-  async renamePlaylist(playlistId, name) {
+  async renamePlaylist(playlistId, newName) {
     try {
-      const response = await fetch(`${this.baseUrl}/${playlistId}`, {
+      const response = await fetch(`${this.baseUrl}/${playlistId}?sessionId=${window.sessionId}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ name })
+        body: JSON.stringify({ name: newName })
       });
       if (!response.ok) {
         const error = await response.json();
@@ -105,11 +95,10 @@ class PlaylistService {
 
   async moveVideo(playlistId, videoId, targetPlaylistId) {
     try {
-      const response = await fetch(`${this.baseUrl}/${playlistId}/move`, {
+      const response = await fetch(`${this.baseUrl}/${playlistId}/move?sessionId=${window.sessionId}`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ videoId, targetPlaylistId })
       });

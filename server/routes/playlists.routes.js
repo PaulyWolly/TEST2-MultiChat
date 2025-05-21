@@ -1,22 +1,16 @@
 const express = require('express');
-const jwt = require('jsonwebtoken');
 const Playlist = require('../models/Playlist');
 
 const router = express.Router();
 
 // Middleware to check if user is authenticated
 const requireAuth = (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) {
-    return res.status(401).json({ error: 'No token provided' });
+  const sessionId = req.query.sessionId;
+  if (!sessionId) {
+    return res.status(401).json({ error: 'No session ID provided' });
   }
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.userId = decoded.userId;
-    next();
-  } catch (err) {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
+  req.userId = sessionId;
+  next();
 };
 
 // List all playlists for the user
@@ -96,51 +90,57 @@ router.delete('/:playlistId/videos/:videoId', requireAuth, async (req, res) => {
 router.put('/:playlistId', requireAuth, async (req, res) => {
   try {
     const { name } = req.body;
-    if (!name) return res.status(400).json({ error: 'Playlist name required' });
+    if (!name) return res.status(400).json({ error: 'New name required' });
 
-    const playlist = await Playlist.findOneAndUpdate(
-      { _id: req.params.playlistId, userId: req.userId },
-      { name },
-      { new: true }
-    );
-
+    const playlist = await Playlist.findOne({ 
+      _id: req.params.playlistId, 
+      userId: req.userId 
+    });
+    
     if (!playlist) {
       return res.status(404).json({ error: 'Playlist not found' });
     }
 
+    playlist.name = name;
+    await playlist.save();
     res.json({ success: true, playlist });
   } catch (error) {
     res.status(500).json({ error: 'Failed to rename playlist' });
   }
 });
 
-// Move a video to another playlist
+// Move video between playlists
 router.post('/:playlistId/move', requireAuth, async (req, res) => {
   try {
     const { videoId, targetPlaylistId } = req.body;
     if (!videoId || !targetPlaylistId) {
-      return res.status(400).json({ error: 'Missing data' });
+      return res.status(400).json({ error: 'Video ID and target playlist ID required' });
     }
 
-    const [from, to] = await Promise.all([
-      Playlist.findOne({ _id: req.params.playlistId, userId: req.userId }),
-      Playlist.findOne({ _id: targetPlaylistId, userId: req.userId })
-    ]);
+    const sourcePlaylist = await Playlist.findOne({ 
+      _id: req.params.playlistId, 
+      userId: req.userId 
+    });
+    
+    const targetPlaylist = await Playlist.findOne({ 
+      _id: targetPlaylistId, 
+      userId: req.userId 
+    });
 
-    if (!from || !to) {
+    if (!sourcePlaylist || !targetPlaylist) {
       return res.status(404).json({ error: 'Playlist not found' });
     }
 
-    const video = from.videos.find(v => v.videoId === videoId);
+    const video = sourcePlaylist.videos.find(v => v.videoId === videoId);
     if (!video) {
       return res.status(404).json({ error: 'Video not found in source playlist' });
     }
 
-    from.videos = from.videos.filter(v => v.videoId !== videoId);
-    to.videos.unshift(video);
+    sourcePlaylist.videos = sourcePlaylist.videos.filter(v => v.videoId !== videoId);
+    targetPlaylist.videos.unshift(video);
 
-    await Promise.all([from.save(), to.save()]);
-    res.json({ success: true, from, to });
+    await Promise.all([sourcePlaylist.save(), targetPlaylist.save()]);
+    res.json({ success: true, sourcePlaylist, targetPlaylist });
   } catch (error) {
     res.status(500).json({ error: 'Failed to move video' });
   }
