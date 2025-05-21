@@ -112,8 +112,8 @@ status {
     background-color: #f5f5f5;  /* Light grey background */
     padding: 10px;
     border-radius: 8px;
-    width: 45vw;  /* Fixed width */
-    margin-right: 10px;
+    width: 35vw;  /* Fixed width */
+    margin-left: 25px;
 }
 
 #user-input {
@@ -418,7 +418,7 @@ button {
     line-height: 22px;
     position: absolute;
     bottom: 24px;
-    left: 38%;
+    left: 41%;
     z-index: 1000;
     transform: translateX(-50%);
 }
@@ -979,6 +979,7 @@ button {
     cursor: pointer;
     color: #666;
     transition: color 0.2s;
+    margin-left: 5px;
 }
 
 #input-container button:hover,
@@ -1539,14 +1540,14 @@ button {
 .status-msg {
     color: #0451f8;
     font-size: 1.7vh;
-    max-width: 68%;
+    max-width: 75%;
     font-weight: 600;
 }
 
 .conversation-enable-message {
     color: #4a4a4a;
     font-size: 1.7vh;
-    max-width: 70%;
+    max-width: 85%;
     font-weight: 500;
 }
 
@@ -1607,7 +1608,6 @@ button {
     border: none;
     cursor: pointer;
     text-decoration: none;
-    display: inline-block;
     transition: background 0.2s;
 }
 .youtube-multi-action-btn.tab-btn:hover {
@@ -2017,4 +2017,221 @@ button {
     box-shadow: 0 1px 4px rgba(0,0,0,0.12);
     display: block;
     margin: 0 auto;
+}
+
+/* Playlist Manager Dialog Content - wider/taller */
+.playlist-manager-content {
+  width: 54vw;
+  min-width: 340px;
+  max-width: 900px;
+  height: 80vh;
+  min-height: 420px;
+  max-height: 95vh;
+  padding: 32px 28px;
+  margin: 48px auto;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 4px 32px rgba(0,0,0,0.18);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.close-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 24px;
+    color: #e92828;
+}
+
+/* Playlist Manager: Video thumbnails in playlist list */
+.playlist-manager-dialog .videos-container .video-thumbnail {
+  max-width: 80px;
+  max-height: 60px;
+  border-radius: 6px;
+  margin-right: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+}
+
+/* Drag handle/icon for pending video */
+.pending-video .drag-icon {
+  font-size: 2.2em;
+  margin-right: 14px;
+  cursor: grab;
+  color: #2196f3;
+  user-select: none;
+  vertical-align: middle;
+}
+
+/* Pending video thumbnail size */
+.pending-video img {
+  max-width: 80px;
+  max-height: 60px;
+  border-radius: 6px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+/* Drop target only first 50% of the row, left-aligned */
+.playlist-item.drag-over {
+  background: #e3f2fd;
+  border: 2px dashed #2196f3;
+  border-radius: 8px;
+  width: 50%;
+  margin-left: 0;
+  margin-right: auto;
+}
+
+/* Absolutely positioned pending video next to playlist name header */
+.pending-video-abs {
+  position: absolute;
+  top: 50%;
+  right: 35px;
+  transform: translateY(-50%) translateX(32px);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+}
+
+/* Pencil always to the right of playlist name */
+.current-playlist-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.edit-playlist-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1em;
+  vertical-align: middle;
+  margin-left: 0;
+}
+
+/* Playlist videos table */
+.playlist-videos-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 8px;
+  margin-top: 12px;
+}
+.playlist-videos-table th, .playlist-videos-table td {
+  padding: 8px 12px;
+  text-align: left;
+  vertical-align: middle;
+}
+.playlist-videos-table th {
+  background: #f5f7fa;
+  font-weight: 600;
+  border-bottom: 2px solid #e0e0e0;
+}
+.playlist-videos-table tr {
+  background: #f9fbfd;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.playlist-videos-table tr:hover {
+  background: #e3f2fd;
+}
+.playlist-videos-table .video-thumbnail {
+  max-width: 110px;
+  max-height: 78px;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+}
+.action-btn {
+  background: none;
+  border: none;
+  font-size: 1.3em;
+  margin: 0 4px;
+  cursor: pointer;
+  color: #2196f3;
+  vertical-align: middle;
+  transition: color 0.2s;
+}
+.action-btn:hover {
+  color: #1565c0;
+}
+/* Pending video row styling */
+.pending-video {
+  display: flex;
+  align-items: center;
+  background: #fff0f0;
+  border: 2px solid #e92828;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  padding: 10px 16px;
+  font-size: 1.1em;
+  box-shadow: 0 2px 8px rgba(233,40,40,0.08);
+}
+.pending-video .drag-icon {
+  font-size: 2.2em;
+  margin-right: 14px;
+  cursor: grab;
+  color: #2196f3;
+  user-select: none;
+  vertical-align: middle;
+}
+.pending-video img {
+  max-width: 110px;
+  max-height: 78px;
+  border-radius: 8px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+/* 4. Close (X) icon in top right */
+.playlist-manager-dialog .close-btn {
+  position: absolute;
+  top: 65px;
+  right: 375px;
+  background: #fff;
+  border: 2px solid #e0e0e0;
+  border-radius: 50%;
+  width: 38px;
+  height: 38px;
+  font-size: 2em;
+  color: #e92828;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  z-index: 10;
+}
+.playlist-manager-dialog .close-btn:hover {
+  background: #ffeaea;
+  border-color: #e92828;
+}
+
+/* 3. Larger text fields and buttons */
+.playlist-manager-content input,
+.playlist-manager-content button {
+  font-size: 1.15em;
+  padding: 8px 14px;
+}
+
+.playlist-item {
+  cursor: pointer;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+.playlist-item.active {
+  background-color: #f0f0f0;
+}
+
+.playlist-manager-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.playlist-manager-header .current-playlist-name {
+    
 }

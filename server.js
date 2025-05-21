@@ -17,6 +17,7 @@ const OpenAI           = require('openai');
 const axios            = require('axios');
 const mongoose         = require('mongoose');
 const { google }       = require('googleapis');
+const jwt              = require('jsonwebtoken');
 
 // Load environment variables FIRST
 dotenv.config();
@@ -282,6 +283,26 @@ app.use((req, res, next) => {
 // =====================================================
 // ROUTES
 // =====================================================
+
+// Generate JWT token for playlist authentication
+app.post('/api/auth/token', (req, res) => {
+    try {
+        const { userId } = req.body;
+        if (!userId) {
+            return res.status(400).json({ error: 'User ID required' });
+        }
+
+        const token = jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '24h' });
+        res.json({ token });
+    } catch (error) {
+        console.error('Token generation error:', error);
+        res.status(500).json({ error: 'Failed to generate token' });
+    }
+});
+
+// Mount playlist API routes
+const playlistRoutes = require('./server/routes/playlists.routes');
+app.use('/api/playlists', playlistRoutes);
 
 // Add new route to get all personal info FIRST
 app.get('/api/personal-info/all', async (req, res) => {
@@ -872,6 +893,7 @@ app.post('/api/datetime', async (req, res) => {
         });
     }
 });
+
 
 // =====================================================
 // JOKE API ENDPOINTS
@@ -1801,3 +1823,4 @@ app.listen(port, '0.0.0.0', () => {
 // =====================================================
 // END OF Server.js FILE v20.0.0
 // =====================================================
+

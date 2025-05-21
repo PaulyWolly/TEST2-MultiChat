@@ -10,10 +10,12 @@
 // IMPORTS NEEDED FOR NEW ES6 MODULES
 // =====================================================
 
-import { PlaylistManager } from './components/PlaylistManager.js';
+import playlistManager from './components/PlaylistManager.js';
 
-// import { YoutubeManager } from './components/YoutubeManager.js';
-
+// Initialize PlaylistManager globally
+console.log('Initializing PlaylistManager...');
+window.playlistManager = playlistManager;
+console.log('PlaylistManager initialized:', window.playlistManager);
 
 // =====================================================
 // GLOBAL SCOPED CONSTANTS
@@ -191,9 +193,6 @@ const elements = {
     conversationStatus: document.getElementById('conversation-status'),
     videoContainer: document.getElementById('youtube-container'),
 };
-
-// Initialize PlaylistManager
-window.playlistManager = new PlaylistManager();
 
 // =====================================================
 // GLOBAL SCOPED STATE
@@ -757,12 +756,35 @@ function getHoliday(date) {
 // =====================================================
 
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM Content Loaded - Setting up Playlist button...');
     // Inject metadata spacing style
     const style = document.createElement('style');
     style.textContent = `
         .metadata {
             margin-bottom: 12px;
             padding-bottom: 4px;
+        }
+        #open-playlist-manager-btn {
+            display: none;
+            margin: 24px 8px 22px 10px;
+            background: #2196f3;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            width: 130px;
+        }
+        #open-playlist-manager-btn:hover {
+            background: #1976d2;
+        }
+        #user-input {
+            max-width: 400px !important;
+            width: 100%;
+            margin: 0 auto;
+            display: block;
         }
     `;
     document.head.appendChild(style);
@@ -1503,7 +1525,7 @@ async function sendMessage(message, isGreeting = false) {
                     // Regular message handling
                     const messageElement = addMessageToChat('assistant', data.response, {
                         model: data.metrics?.model,
-                        startTime: startTime,
+                        startTime: data.metrics?.startTime || Date.now(),
                         tokenCount: data.tokenCount
                     });
                 }
@@ -4148,6 +4170,9 @@ const handleYoutube = {
                         <div class="button-thumb-group top-buttons">
                             <a href="#" class="youtube-action-btn youtube-popup-btn" data-local-video="${dummyVideo.localUrl}" role="button" tabindex="0">Play in Popup</a>
                             <button class="youtube-action-btn add-to-playlist-btn" data-video='${JSON.stringify(dummyVideo)}' title="Add to Playlist">+</button>
+                            <button class="youtube-action-btn view-playlists-btn" title="View My Playlists" style="font-size:18px;padding:0 10px;background:none;border:none;cursor:pointer;vertical-align:middle;">
+                              <span style="display:inline-block;vertical-align:middle;">&#9776;</span>
+                            </button>
                         </div>
                         <span class="youtube-thumb-link youtube-popup-thumb" data-local-video="${dummyVideo.localUrl}">
                             <img src="${dummyVideo.thumbnail}" alt="${dummyVideo.title}" title="Local Video" style="max-width:250px; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.12); display:block; margin:0 auto;" />
@@ -4173,12 +4198,21 @@ const handleYoutube = {
                     btn.addEventListener('click', (e) => {
                         e.preventDefault();
                         const videoData = JSON.parse(btn.getAttribute('data-video'));
+                        console.log('Playlist button clicked', videoData); // <-- Are we feeling the click?
                         if (window.playlistManager) {
                             window.playlistManager.show(videoData);
                         } else {
                             console.error('PlaylistManager not initialized');
                         }
                     });
+                });
+                document.querySelectorAll('.view-playlists-btn').forEach(btn => {
+                  btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    if (window.playlistManager) {
+                      window.playlistManager.show();
+                    }
+                  });
                 });
             }, 100);
             return true;
@@ -4219,6 +4253,9 @@ const handleYoutube = {
                                     title: videos[0].title,
                                     thumbnail: videos[0].thumbnail
                                 })}' title="Add to Playlist">+</button>
+                                <button class="youtube-action-btn view-playlists-btn" title="View My Playlists" style="font-size:18px;padding:0 10px;background:none;border:none;cursor:pointer;vertical-align:middle;">
+                                  <span style="display:inline-block;vertical-align:middle;">&#9776;</span>
+                                </button>
                             </div>
                             <span class="youtube-thumb-link youtube-popup-thumb" data-video-id="${videos[0].id}">
                                 <img src="https://img.youtube.com/vi/${videos[0].id}/hqdefault.jpg" alt="${videos[0].title}" title="Popup: ${videos[0].title}" />
@@ -4245,6 +4282,9 @@ const handleYoutube = {
                                             title: video.title,
                                             thumbnail: video.thumbnail
                                         })}' title="Add to Playlist">+</button>
+                                        <button class="youtube-action-btn view-playlists-btn" title="View My Playlists" style="font-size:18px;padding:0 10px;background:none;border:none;cursor:pointer;vertical-align:middle;">
+                                          <span style="display:inline-block;vertical-align:middle;">&#9776;</span>
+                                        </button>
                                     </div>
                                     <span class="youtube-thumb-link youtube-popup-thumb" data-video-id="${video.id}">
                                         <img src="https://img.youtube.com/vi/${video.id}/hqdefault.jpg" alt="${video.title}" title="Popup: ${video.title}" />
@@ -4286,6 +4326,14 @@ const handleYoutube = {
                             console.error('PlaylistManager not initialized');
                         }
                     });
+                });
+                document.querySelectorAll('.view-playlists-btn').forEach(btn => {
+                  btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    if (window.playlistManager) {
+                      window.playlistManager.show();
+                    }
+                  });
                 });
             }, 100);
             return true;
@@ -4767,36 +4815,36 @@ function restoreHonorifics(text) {
 // ... existing code ...
 
 // In the SINGLE video layout section:
-const singleVideoHtml = `
-  <div class="youtube-single-bubble">
-    <div class="video-title">${videos[0].title}</div>
-    <div class="button-thumb-group top-buttons">
-      <!-- Play in Popup and + button here -->
-    </div>
-    <span class="youtube-thumb-link youtube-popup-thumb" ...>
-      <img ... />
-    </span>
-    <div class="button-thumb-group bottom-buttons">
-      <!-- Watch on YouTube button here -->
-    </div>
-  </div>
-`;
+// const singleVideoHtml = `
+//   <div class="youtube-single-bubble">
+//     <div class="video-title">${videos[0].title}</div>
+//     <div class="button-thumb-group top-buttons">
+//       <!-- Play in Popup and + button here -->
+//     </div>
+//     <span class="youtube-thumb-link youtube-popup-thumb" ...>
+//       <img ... />
+//     </span>
+//     <div class="button-thumb-group bottom-buttons">
+//       <!-- Watch on YouTube button here -->
+//     </div>
+//   </div>
+// `;
 
 // In the MULTI video layout section:
-const multiVideoHtml = `
-  <div class="youtube-multi-bubble">
-    <div class="video-title">${video.title}</div>
-    <div class="button-thumb-group top-buttons">
-      <!-- Play in Popup and + button here -->
-    </div>
-    <span class="youtube-thumb-link youtube-popup-thumb" ...>
-      <img ... />
-    </span>
-    <div class="button-thumb-group bottom-buttons">
-      <!-- Watch on YouTube button here -->
-    </div>
-  </div>
-`;
+// const multiVideoHtml = `
+//   <div class="youtube-multi-bubble">
+//     <div class="video-title">${video.title}</div>
+//     <div class="button-thumb-group top-buttons">
+//       <!-- Play in Popup and + button here -->
+//     </div>
+//     <span class="youtube-thumb-link youtube-popup-thumb" ...>
+//       <img ... />
+//     </span>
+//     <div class="button-thumb-group bottom-buttons">
+//       <!-- Watch on YouTube button here -->
+//     </div>
+//   </div>
+// `;
 
 // Add event listener for Add to Playlist buttons
 document.addEventListener('click', async (e) => {
